@@ -1,6 +1,8 @@
 # pi-web-fetch
 
-A [pi](https://github.com/badlogic/pi-mono) extension that gives your agent a proper web browser. Fetches pages via headless Chrome, extracts clean content via [trafilatura](https://trafilatura.readthedocs.io/), and optionally distills it with an LLM.
+A [pi](https://github.com/badlogic/pi-mono) extension that gives your agent a proper web browser. Fetches pages via a headless Chromium you already have, extracts clean content via [trafilatura](https://trafilatura.readthedocs.io/), and optionally distills it with an LLM.
+
+This is the KessokuNet fork of [georgebashi/pi-web-fetch](https://github.com/georgebashi/pi-web-fetch). It drops puppeteer's bundled Chromium download in favour of `puppeteer-core` driving a system browser (Helium, Chromium, Chrome), which is configurable and roughly 400 MB lighter.
 
 ## Why not use Claude Code's built-in WebFetch?
 
@@ -19,11 +21,11 @@ Claude Code's WebFetch uses Turndown to convert HTML to markdown — a simple re
 ## Features
 
 - **`web_fetch` tool** — registered in pi's tool system, callable by the LLM
-- **Headless Chrome** via puppeteer — handles JavaScript-rendered pages, SPAs, pages behind cookie banners
+- **Headless Chromium** via `puppeteer-core` — handles JavaScript-rendered pages, SPAs, pages behind cookie banners, using a browser already installed on the machine
 - **Content extraction** — strips boilerplate (nav, ads, footers) using trafilatura's ML-based extraction, outputs clean markdown
 - **LLM processing** — optionally distills page content to answer a specific question via a pi sub-agent
 - **Batch fetching** — fetch up to 10 pages concurrently in a single tool call with per-URL status in the UI
-- **Browser pool** — reuses a single Chrome instance with up to 6 parallel tabs, avoiding repeated browser startup overhead
+- **Browser pool** — reuses a single browser instance with up to 6 parallel tabs, avoiding repeated browser startup overhead
 - **Smart large-page handling** — when content exceeds ~50KB and no prompt is given, automatically generates a structured summary
 - **15-minute cache** — avoids redundant fetches; enables summarize-then-drill-down workflows
 - **Cross-host redirect detection** — reported to the LLM for explicit follow-up rather than silently following
@@ -41,24 +43,24 @@ Claude Code's WebFetch uses Turndown to convert HTML to markdown — a simple re
   4. [pip-run](https://github.com/jaraco/pip-run) — niche fallback
 - Node.js 18+
 
+- Node.js 18+
+- A Chromium-based browser: `/usr/lib64/helium-browser-bin/helium`, `/usr/bin/helium`, `/usr/bin/chromium`, `/usr/bin/chromium-browser`, `/usr/bin/google-chrome-stable`, `/usr/bin/google-chrome`, or `/snap/bin/chromium` (first match wins). Override with `PUPPETEER_EXECUTABLE_PATH` or the `browserExecutable` config key.
+
 ## Installation
 
 ```bash
-npm install pi-web-fetch
+pi install git:github.com/KessokuNet/pi-web-fetch
 ```
 
 Or clone for development:
 
 ```bash
-git clone https://github.com/georgebashi/pi-web-fetch
+git clone https://github.com/KessokuNet/pi-web-fetch
 cd pi-web-fetch
 npm install
 ```
 
-> **Note:** `npm install` will download puppeteer's bundled Chromium (~300MB). If you already have Chrome/Chromium installed, you can set `PUPPETEER_EXECUTABLE_PATH` to skip the download:
-> ```bash
-> export PUPPETEER_EXECUTABLE_PATH=/path/to/chrome
-> ```
+> **Note:** `npm install` does not download Chromium. Set `PUPPETEER_EXECUTABLE_PATH` if none of the paths above exist on your system.
 
 > **Note:** The first time `web_fetch` runs, `uvx` will download the trafilatura package (~10MB). Subsequent runs use the cached environment and are fast.
 
@@ -68,8 +70,8 @@ Add the package to your pi settings (`~/.pi/agent/settings.json`):
 
 ```json
 {
-  "extensions": [
-    "pi-web-fetch"
+  "packages": [
+    "git:github.com/KessokuNet/pi-web-fetch"
   ]
 }
 ```
@@ -78,8 +80,8 @@ Or point to a local checkout:
 
 ```json
 {
-  "extensions": [
-    "/path/to/pi-web-fetch"
+  "packages": [
+    "../../Projects/pi-web-fetch"
   ]
 }
 ```
@@ -87,7 +89,7 @@ Or point to a local checkout:
 Or use the `-e` flag for quick testing:
 
 ```bash
-pi -e pi-web-fetch
+pi -e git:github.com/KessokuNet/pi-web-fetch
 ```
 
 ## Usage
@@ -134,7 +136,7 @@ pi-web-fetch has a hook system for site-specific fetch behavior. Extensions can 
 Extensions are TypeScript modules with a factory function default export:
 
 ```typescript
-import type { WebFetchExtension } from "pi-web-fetch/types";
+import type { WebFetchExtension } from "@kessokunet/pi-web-fetch/types";
 
 export default function (): WebFetchExtension {
   return {
@@ -171,7 +173,8 @@ Create `~/.pi/agent/web-fetch.json` to override defaults:
 {
   "model": "provider/model-id",
   "thinkingLevel": "medium",
-  "extensionsDir": "~/.pi/extensions/web-fetch"
+  "extensionsDir": "~/.pi/extensions/web-fetch",
+  "browserExecutable": "/usr/bin/chromium"
 }
 ```
 
@@ -180,6 +183,7 @@ Create `~/.pi/agent/web-fetch.json` to override defaults:
 | `model` | Current session model | Model for LLM content processing |
 | `thinkingLevel` | Current session thinking level | Thinking level for the sub-agent |
 | `extensionsDir` | `~/.pi/extensions/web-fetch/` | Directory for local extensions |
+| `browserExecutable` | `PUPPETEER_EXECUTABLE_PATH`, then the first system browser found | Chromium-based browser to drive |
 
 Without a config file, the extension uses whatever model and thinking level the current session is using.
 

@@ -40,6 +40,8 @@ interface WebFetchConfig {
 	thinkingLevel?: string;
 	/** Custom directory path for local extensions. Defaults to ~/.pi/extensions/web-fetch/ */
 	extensionsDir?: string;
+	/** Chromium-based browser to drive. Defaults to PUPPETEER_EXECUTABLE_PATH, then the first system browser found. */
+	browserExecutable?: string;
 }
 
 const CONFIG_PATH = join(homedir(), ".pi", "agent", "web-fetch.json");
@@ -58,7 +60,11 @@ const config: WebFetchConfig = loadConfig();
 const registry = new ExtensionRegistry();
 const MAX_BROWSER_TABS = 6; // Maximum concurrent browser tabs for parallel fetching
 const BROWSER_IDLE_TIMEOUT_MS = 60_000; // Close browser after 60s idle
-const browserPool = new BrowserPool({ maxTabs: MAX_BROWSER_TABS, idleTimeoutMs: BROWSER_IDLE_TIMEOUT_MS });
+const browserPool = new BrowserPool({
+	maxTabs: MAX_BROWSER_TABS,
+	idleTimeoutMs: BROWSER_IDLE_TIMEOUT_MS,
+	executablePath: config.browserExecutable,
+});
 
 // --- Extension Loading ---
 

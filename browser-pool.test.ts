@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { BrowserPool } from "./browser-pool.js";
 
 // We mock puppeteer so tests run fast without a real browser
-vi.mock("puppeteer", () => {
+vi.mock("puppeteer-core", () => {
 	const mockPage = () => ({
 		close: vi.fn().mockResolvedValue(undefined),
 		goto: vi.fn().mockResolvedValue(undefined),
@@ -53,7 +53,7 @@ describe("BrowserPool", () => {
 	});
 
 	it("reuses the same browser for multiple acquires", async () => {
-		const puppeteer = (await import("puppeteer")).default;
+		const puppeteer = (await import("puppeteer-core")).default;
 		const launchCountBefore = vi.mocked(puppeteer.launch).mock.calls.length;
 		pool = new BrowserPool();
 
@@ -183,7 +183,7 @@ describe("BrowserPool", () => {
 	});
 
 	it("parallel fetches share the same browser", async () => {
-		const puppeteer = (await import("puppeteer")).default;
+		const puppeteer = (await import("puppeteer-core")).default;
 		vi.mocked(puppeteer.launch).mockClear();
 
 		pool = new BrowserPool({ maxTabs: 4 });

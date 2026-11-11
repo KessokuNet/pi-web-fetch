@@ -12,17 +12,41 @@
  *   - Browser auto-closes after idleTimeoutMs of no active tabs
  *   - shutdown() immediately closes everything
  */
-import puppeteer, { type Browser, type Page } from "puppeteer";
+import { existsSync } from "node:fs";
+import puppeteer, { type Browser, type Page } from "puppeteer-core";
 
 export interface BrowserPoolOptions {
 	/** Maximum concurrent tabs. Excess requests queue until a tab is available. Default: 6. */
 	maxTabs?: number;
 	/** Close browser after this many ms with no active tabs. Default: 60_000. */
 	idleTimeoutMs?: number;
+	/** Chromium-based browser to drive. Defaults to PUPPETEER_EXECUTABLE_PATH, then the first system browser found. */
+	executablePath?: string;
 }
 
 const DEFAULT_MAX_TABS = 6;
 const DEFAULT_IDLE_TIMEOUT_MS = 60_000;
+
+const SYSTEM_BROWSERS = [
+	"/usr/lib64/helium-browser-bin/helium",
+	"/usr/bin/helium",
+	"/usr/bin/chromium",
+	"/usr/bin/chromium-browser",
+	"/usr/bin/google-chrome-stable",
+	"/usr/bin/google-chrome",
+	"/snap/bin/chromium",
+];
+
+export function resolveExecutablePath(explicit?: string): string {
+	if (explicit) return explicit;
+	const fromEnv = process.env.PUPPETEER_EXECUTABLE_PATH;
+	if (fromEnv) return fromEnv;
+	const found = SYSTEM_BROWSERS.find((path) => existsSync(path));
+	if (found) return found;
+	throw new Error(
+		"No Chromium-based browser found. Install one, set PUPPETEER_EXECUTABLE_PATH, or set browserExecutable in ~/.pi/agent/web-fetch.json.",
+	);
+}
 
 export class BrowserPool {
 	private browser: Browser | null = null;
@@ -31,12 +55,14 @@ export class BrowserPool {
 	private idleTimer: ReturnType<typeof setTimeout> | null = null;
 	private readonly maxTabs: number;
 	private readonly idleTimeoutMs: number;
+	private readonly executablePath?: string;
 	private waitQueue: Array<{ resolve: () => void; reject: (err: Error) => void }> = [];
 	private closed = false;
 
 	constructor(options?: BrowserPoolOptions) {
 		this.maxTabs = options?.maxTabs ?? DEFAULT_MAX_TABS;
 		this.idleTimeoutMs = options?.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS;
+		this.executablePath = options?.executablePath;
 	}
 
 	/**
@@ -130,7 +156,7 @@ export class BrowserPool {
 
 		this.launching = puppeteer.launch({
 			headless: true,
-			executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+			executablePath: resolveExecutablePath(this.executablePath),
 		});
 
 		try {
